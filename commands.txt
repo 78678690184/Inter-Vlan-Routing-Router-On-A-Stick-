@@ -1,0 +1,214 @@
+INTER-VLAN ROUTING - ROUTER-ON-A-STICK
+Cisco Packet Tracer Lab
+=====================================
+
+TOPOLOGY
+--------
+R1 Fa0/0 <----trunk----> SW2 Fa0/6
+SW1 Fa0/5 <----trunk----> SW2 Fa0/5
+
+Both switches carry VLAN 10 and VLAN 20.
+
+PORT PLAN
+---------
+SW1:
+  Fa0/1-2  -> VLAN 20 (FINANCE)
+  Fa0/3-4  -> VLAN 10 (IT)
+  Fa0/5    -> trunk to SW2 Fa0/5
+
+SW2:
+  Fa0/1-2  -> VLAN 20 (FINANCE)
+  Fa0/3-4  -> VLAN 10 (IT)
+  Fa0/5    -> trunk to SW1 Fa0/5
+  Fa0/6    -> trunk to R1 Fa0/0
+
+IP ADDRESSING
+-------------
+VLAN 10 (IT):       192.168.1.0/24
+Default gateway:    192.168.1.10
+
+VLAN 20 (FINANCE):  192.168.2.0/24
+Default gateway:    192.168.2.10
+
+Example PC addresses (use unique addresses for every PC):
+  VLAN 10 PCs: 192.168.1.2-192.168.1.5 /24
+  VLAN 20 PCs: 192.168.2.2-192.168.2.5 /24
+
+VLAN 10 PC gateway: 192.168.1.10
+VLAN 20 PC gateway: 192.168.2.10
+Subnet mask:        255.255.255.0
+
+
+1. SW1 CONFIGURATION
+--------------------
+
+enable
+configure terminal
+
+vlan 10
+ name IT
+exit
+
+vlan 20
+ name FINANCE
+exit
+
+interface range fastEthernet 0/1-2
+ switchport mode access
+ switchport access vlan 20
+exit
+
+interface range fastEthernet 0/3-4
+ switchport mode access
+ switchport access vlan 10
+exit
+
+interface fastEthernet 0/5
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20
+exit
+
+end
+write memory
+
+
+2. SW2 CONFIGURATION
+--------------------
+
+enable
+configure terminal
+
+vlan 10
+ name IT
+exit
+
+vlan 20
+ name FINANCE
+exit
+
+interface range fastEthernet 0/1-2
+ switchport mode access
+ switchport access vlan 20
+exit
+
+interface range fastEthernet 0/3-4
+ switchport mode access
+ switchport access vlan 10
+exit
+
+! Trunk link to SW1
+interface fastEthernet 0/5
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20
+exit
+
+! Trunk link to Router R1
+interface fastEthernet 0/6
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20
+exit
+
+end
+write memory
+
+
+3. ROUTER R1 CONFIGURATION (ROUTER-ON-A-STICK)
+----------------------------------------------
+
+enable
+configure terminal
+
+interface fastEthernet 0/0
+ no shutdown
+exit
+
+! Logical subinterface for VLAN 10
+interface fastEthernet 0/0.10
+ encapsulation dot1Q 10
+ ip address 192.168.1.10 255.255.255.0
+exit
+
+! Logical subinterface for VLAN 20
+interface fastEthernet 0/0.20
+ encapsulation dot1Q 20
+ ip address 192.168.2.10 255.255.255.0
+exit
+
+end
+write memory
+
+
+4. PC CONFIGURATION
+-------------------
+
+Configure each PC from Desktop > IP Configuration.
+
+VLAN 10:
+  IP address:       unique address in 192.168.1.0/24
+  Subnet mask:      255.255.255.0
+  Default gateway:  192.168.1.10
+
+VLAN 20:
+  IP address:       unique address in 192.168.2.0/24
+  Subnet mask:      255.255.255.0
+  Default gateway:  192.168.2.10
+
+
+5. VERIFICATION
+---------------
+
+On both switches:
+  show vlan brief
+  show interfaces trunk
+  show interfaces fa0/5 switchport
+
+On SW2, also verify the router-facing port:
+  show interfaces fa0/6 switchport
+
+On router:
+  show ip interface brief
+  show ip route
+  show running-config
+
+Expected router interfaces:
+  FastEthernet0/0      up/up
+  FastEthernet0/0.10   192.168.1.10   up/up
+  FastEthernet0/0.20   192.168.2.10   up/up
+
+Expected connected routes:
+  192.168.1.0/24 directly connected via Fa0/0.10
+  192.168.2.0/24 directly connected via Fa0/0.20
+
+Ping tests:
+  VLAN 10 PC -> 192.168.1.10
+  VLAN 20 PC -> 192.168.2.10
+  VLAN 10 PC -> a VLAN 20 PC address
+  VLAN 20 PC -> a VLAN 10 PC address
+
+
+TROUBLESHOOTING CHECKLIST
+-------------------------
+
+[ ] VLAN 10 and VLAN 20 exist on BOTH switches.
+[ ] PC-facing ports are access ports in the correct VLAN.
+[ ] SW1 Fa0/5 and SW2 Fa0/5 are trunk ports.
+[ ] SW2 Fa0/6 and R1 Fa0/0 are connected.
+[ ] Both trunk links allow VLANs 10 and 20.
+[ ] Router physical interface Fa0/0 is not shutdown.
+[ ] Subinterface VLAN tags match: dot1Q 10 and dot1Q 20.
+[ ] Each PC has an IP address from its VLAN subnet.
+[ ] Each PC has the correct default gateway.
+[ ] Router subinterfaces and physical interface show up/up.
+
+IMPORTANT NOTES
+---------------
+
+- The interface numbers above follow the topology/port plan used for this lab.
+  If your Packet Tracer cabling uses different ports, apply the same
+  configuration to the actual connected interfaces.
+- On some switch models, the command "switchport trunk encapsulation dot1q"
+  is not available because 802.1Q is the only supported trunk encapsulation.
+  "switchport mode trunk" is sufficient on those models.
+- Do not configure an IP address on the router's physical Fa0/0 interface
+  for this Router-on-a-Stick design. The gateway IP addresses belong on
+  the VLAN subinterfaces.
